@@ -1,20 +1,32 @@
-@ECHO OFF
+@ ECHO OFF
 SET klocation="CHANGE THIS TO THE FULL PATH OF YOUR KAFKA INSTANCE"
 SET brokerList="CHANGE THIS TO THE LIST OF KAFKA BROKERS" REM EXAMPLE: "localhost:9092,localhost:9093,localhost:9094"
 
 REM ***********************  DO NOT CHANGE ANYTHING BELOW THIS LINE  ***********************
 
-SET /p group="Group-Id: "
+cd %klocation%\bin\windows
 SET tryCount=1
 SET maxTries=3
 SET match=false
+SET /p topic="Topic: "
 
-cd %klocation%\bin\windows
-
-:GROUPID_EXISTS
-	 for /f %%i in ('kafka-consumer-groups.bat --bootstrap-server %brokerList% --list') do (
-		IF %%i==%group% (
-			SET match=true
+:TOPIC_EXISTS
+	IF %topic%==__consumer_offsets (
+		ECHO -------------------------------------------------
+		ECHO *                                               *	
+		ECHO *     '__consumer_offsets' SHOULD NOT BE        *
+		ECHO *         DIRECTLY INTERACTED WITH              *
+		ECHO *   PLEASE TRY AGAIN WITH A DIFFERENT TOPIC     *
+		ECHO *                                               *
+		ECHO -------------------------------------------------
+		SET /p topic="Topic: "
+		SET /a tryCount+=1
+		GOTO :TOPIC_EXISTS
+	) ELSE (
+		 for /f %%i in ('kafka-topics.bat --bootstrap-server %brokerList% --list') do (
+			IF %%i==%topic% (
+				SET match=true
+			)
 		)
 	)
 
@@ -23,28 +35,28 @@ cd %klocation%\bin\windows
 		GOTO :RUN_COMMAND
 		GOTO :EOF
 	) ELSE (
-		GOTO :GET_GROUPID
+		GOTO :GET_TOPIC
 		GOTO :EOF
 	)
 	GOTO :EOF
 
 
-:GET_GROUPID
+:GET_TOPIC
 	IF NOT %tryCount%==%maxTries% (
 		ECHO -------------------------------------------------
 		ECHO *                                               *	
-		ECHO *           GROUP ID DOESN'T EXISTS,            *
+		ECHO *            TOPIC DOESN'T EXISTS,              *
 		ECHO *              PLEASE TRY AGAIN                 *
 		ECHO *                                               *
 		ECHO -------------------------------------------------
-		SET /p group="Group-Id: "
+		SET /p topic="Topic: "
 		SET /a tryCount+=1
-		GOTO :GROUPID_EXISTS
+		GOTO :TOPIC_EXISTS
 	) ELSE (
 		ECHO -------------------------------------------------
 		ECHO *                                               *	
-		ECHO *              INVALID GROUP ID,                *
-		ECHO *              PROGRAM EXITING...               *
+		ECHO *            INVALID TOPIC NAME,                *
+		ECHO *             PROGRAM EXITING...                *
 		ECHO *                                               *
 		ECHO -------------------------------------------------
 		PAUSE
@@ -52,7 +64,7 @@ cd %klocation%\bin\windows
 	)
 
 :RUN_COMMAND
-	call kafka-consumer-groups.bat --bootstrap-server %brokerList% --group %group% --describe
+	call kafka-console-consumer.bat --bootstrap-server %brokerList% --topic %topic%
 	PAUSE
 	GOTO :EOF
 
